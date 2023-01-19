@@ -79,7 +79,7 @@ private:
 		// Два итератора равны, если они ссылаются на один и тот же элемент списка либо на end()
 		[[nodiscard]] bool operator==(const BasicIterator<const Type>& rhs) const noexcept
 		{
-			return !(this->node_ != rhs.node_);
+			return (this->node_ == rhs.node_);
 		}
 
 		// Оператор проверки итераторов на неравенство
@@ -93,7 +93,7 @@ private:
 		// Два итератора равны, если они ссылаются на один и тот же элемент списка либо на end()
 		[[nodiscard]] bool operator==(const BasicIterator<Type>& rhs) const noexcept
 		{
-			return !(this->node_ != rhs.node_);
+			return (this->node_ == rhs.node_);
 		}
 
 		// Оператор проверки итераторов на неравенство
@@ -115,7 +115,7 @@ private:
 			}
 			else
 			{
-				throw std::invalid_argument("Невалидный аргумент: несуществующий адрес узла в методе operator++() или operator++(int)."s); //перебрасываем
+				assert(false);
 			}
 		}
 
@@ -141,7 +141,7 @@ private:
 			}
 			else
 			{
-				throw std::invalid_argument("Невалидный аргумент: несуществующий адрес узла в методе разыменования итератора operator*()."s); //перебрасываем
+				assert(false);
 			}
 		}
 
@@ -156,7 +156,7 @@ private:
 			}
 			else
 			{
-				throw std::invalid_argument("Невалидный аргумент: несуществующий адрес узла в методе доступа к члену класса operator->()."s); //перебрасываем
+				assert(false);
 			}
 		}
 
@@ -168,6 +168,20 @@ private:
 	// Фиктивный узел, используется для вставки "перед первым элементом"
 	Node head_;
 	size_t size_;
+
+	//шаблонный метод для копирования узлов во временный список при инициализации через initializer_list и в конструкторе копирования
+
+	//не понял, а каким образом это можно сделать "не передавать и использовать как метод temp"? поясните, пожалуйста, что-то не соображу что именно надо сделать?
+	template <typename Container>
+	void CopyNodes(Container& container, SingleLinkedList& temp)
+	{
+		Iterator temp_current_node_addr(temp.before_begin());
+		for (auto& node : container)
+		{
+			temp_current_node_addr = temp.InsertAfter(temp_current_node_addr, node);
+		}
+	}
+
 
 public:
 	using value_type = Type;
@@ -198,6 +212,7 @@ public:
 	//   Если на этом этапе будет выброшено исключение, деструктор временного списка освободит память от его элементов.
 	// - Когда временный список будет содержать копию исходного списка, останется использовать метод swap и обменять состояние текущего экземпляра 
 	//   класса и временного списка.
+
 	SingleLinkedList(const SingleLinkedList& other)
 		:size_(0u)
 	{
@@ -209,24 +224,6 @@ public:
 		CopyNodes(other, temp);
 
 		swap(temp);
-	}
-
-	//шаблонный метод для копирования узлов во временный список при инициализации через initializer_list и в конструкторе копирования
-	template <typename Container>
-	void CopyNodes(Container& container, SingleLinkedList& temp)
-	{
-		Iterator temp_current_node_addr;
-		for (auto& node : container)
-		{
-			if (0 == temp.size_) //для первого узла
-			{
-				temp_current_node_addr = temp.InsertAfter(temp.cbefore_begin(), node);
-			}
-			else //для последующих узлов
-			{
-				temp_current_node_addr = temp.InsertAfter(temp_current_node_addr, node);
-			}
-		}
 	}
 
 	SingleLinkedList& operator=(const SingleLinkedList& rhs)
@@ -252,6 +249,10 @@ public:
 	{
 		//если список не проинициализирован элементами, то необходимо вернуть пустой итератор
 		//без этого не сработают операции assert(++empty_list.before_begin() == empty_list.begin());, например
+		// 
+		// в этом ассерте список empty_list имеет size_ = 0; и при попытке вызвать empty_list.begin() поля итератора возвращаются вообще непроинициализированные ничем, судя по дебаггеру (вот такое возвращается: 0xcccccccc {head_={value=??? next_node=??? } size_=??? })
+		// если size_=0 то он вообще не пойму что возвращает в этом методе при работе если исключить возврат Iterator(), т.к. returna'а не будет вообще, он не войдет в единственное условие 
+		// поэтому нужна конструкция, кот. вернет итератор с проинициализированным полем node_ = nullptr, тогда его в ассерте корректно будет сравнить после инкрементирования before_begin(), там тоже будет nullptr
 		return (size_) ? Iterator(head_.next_node) : Iterator();
 	}
 
@@ -289,7 +290,7 @@ public:
 	// Разыменовывать этот итератор нельзя — попытка разыменования приведёт к неопределённому поведению
 	[[nodiscard]] ConstIterator cend() const noexcept
 	{
-		return end(); ////Константные методы можно реализовать через друг друга
+		return end(); //Константные методы можно реализовать через друг друга
 	}
 
 	// Вставляет элемент value в начало списка за время O(1)
@@ -318,6 +319,7 @@ public:
 	// Сообщает, пустой ли список за время O(1)
 	[[nodiscard]] bool IsEmpty() const noexcept
 	{
+		//return size_ ? false : true;
 		return size_ == 0;
 	}
 
@@ -363,6 +365,7 @@ public:
 		}
 		else
 		{
+			//здесь получается можно оставить? или лучше уже однообразно везде asser(false)?
 			throw std::invalid_argument("Невалидный аргумент: некорректный адрес узла (или адрес = nullptr) в методе InsertAfter."s); //перебрасываем
 		}
 	}
@@ -377,7 +380,7 @@ public:
 		}
 		else
 		{
-			throw std::invalid_argument("Невалидный аргумент: некорректный адрес узла (или адрес = nullptr) в методе PopFront."s); //перебрасываем
+			assert(false);
 		}
 	}
 
@@ -396,7 +399,7 @@ public:
 		}
 		else
 		{
-			throw std::invalid_argument("Невалидный аргумент: некорректный адрес узла (или адрес = nullptr) в методе EraseAfter."s); //перебрасываем
+			assert(false);
 		}
 	}
 
@@ -425,7 +428,7 @@ bool operator==(const SingleLinkedList<Type>& lhs, const SingleLinkedList<Type>&
 template <typename Type>
 bool operator!=(const SingleLinkedList<Type>& lhs, const SingleLinkedList<Type>& rhs)
 {
-	return (!(lhs == rhs)) ? true : false;
+	return (!(lhs == rhs));
 }
 
 template <typename Type>
@@ -445,7 +448,7 @@ bool operator<=(const SingleLinkedList<Type>& lhs, const SingleLinkedList<Type>&
 template <typename Type>
 bool operator>(const SingleLinkedList<Type>& lhs, const SingleLinkedList<Type>& rhs)
 {
-	return (lhs <= rhs) ? true : false;
+	return (lhs <= rhs);
 }
 
 template <typename Type>
